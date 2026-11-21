@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WinGo Pro - Multi-Room</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --muted: #94a3b8; --green: #10b981; --violet: #8b5cf6; --red: #ef4444; --gold: #f59e0b; --blue: #3b82f6; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+  body { background: #020617; color: var(--text); display: flex; justify-content: center; min-height: 100vh; }
+  .app { width: 100%; max-width: 430px; background: var(--bg); min-height: 100vh; padding-bottom: 30px; position: relative; }
+
+  .auth-box { padding: 30px 20px; display: flex; flex-direction: column; gap: 12px; margin-top: 30px; }
+  .auth-box h2 { text-align: center; color: var(--gold); margin-bottom: 8px; }
+  input { background: var(--card); border: 1px solid #334155; color: #fff; padding: 13px; border-radius: 10px; font-size: 14px; outline: none; }
+  .btn-primary { background: #2563eb; color: #fff; border: none; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+  .toggle-auth { text-align: center; font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 6px; }
+
+  .header { background: #1e293b; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .brand { font-size: 18px; font-weight: 800; color: var(--gold); }
+  .wallet-card { margin: 12px; padding: 16px; border-radius: 14px; background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+  .balance { font-size: 26px; font-weight: 800; margin-top: 4px; }
+
+  .room-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 12px 12px; background: var(--card); padding: 5px; border-radius: 12px; }
+  .room-btn { background: transparent; border: none; color: var(--muted); padding: 9px 4px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .room-btn.active { background: var(--gold); color: #000; }
+
+  .timer-box { margin: 0 12px 12px; padding: 14px; border-radius: 14px; background: var(--card); display: flex; justify-content: space-between; align-items: center; }
+  .digit { background: #0f172a; color: var(--gold); font-size: 20px; font-weight: 800; padding: 5px 9px; border-radius: 7px; }
+  .countdown { display: flex; gap: 4px; margin-top: 4px; }
+
+  .bet-panel { margin: 0 12px 12px; padding: 14px; border-radius: 14px; background: var(--card); position: relative; overflow: hidden; }
+  .color-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .c-btn { border: none; padding: 12px 6px; border-radius: 10px; color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .btn-green { background: var(--green); } .btn-violet { background: var(--violet); } .btn-red { background: var(--red); }
+
+  .num-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; background: #0f172a; padding: 10px; border-radius: 10px; }
+  .num-btn { aspect-ratio: 1; border-radius: 50%; border: none; font-size: 17px; font-weight: 800; color: #fff; cursor: pointer; }
+  .n-green { background: var(--green); } .n-red { background: var(--red); }
+  .n-violet-red { background: linear-gradient(135deg, var(--red) 50%, var(--violet) 50%); }
+  .n-violet-green { background: linear-gradient(135deg, var(--green) 50%, var(--violet) 50%); }
+
+  .bs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .bs-btn { border: none; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 15px; color: #fff; cursor: pointer; }
+  .btn-big { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  .btn-small { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+
+  .lock-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
+  .lock-overlay.active { display: flex; }
+  .lock-count { font-size: 52px; font-weight: 900; color: var(--gold); }
+
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 12px; background: var(--card); padding: 4px; border-radius: 12px; }
+  .tab { text-align: center; padding: 9px 4px; font-size: 13px; font-weight: 600; color: var(--muted); border-radius: 8px; cursor: pointer; }
+  .tab.active { background: #2563eb; color: #fff; }
+
+  .box { margin: 10px 12px; background: var(--card); border-radius: 14px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 10px 6px; text-align: center; border-bottom: 1px solid #334155; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; margin: 0 2px; }
+
+  .ref-box { padding: 18px; text-align: center; }
+  .ref-code-display { background: #0f172a; border: 1px dashed var(--gold); padding: 12px; border-radius: 10px; font-size: 20px; font-weight: 800; color: var(--gold); margin: 12px 0; letter-spacing: 2px; }
+  .ref-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .stat-pill { background: #0f172a; padding: 12px; border-radius: 10px; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; justify-content: center; align-items: flex-end; z-index: 50; }
+  .modal-bg.open { display: flex; }
+  .modal { width: 100%; max-width: 430px; background: var(--card); border-radius: 20px 20px 0 0; padding: 20px; }
+  .amt-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 18px; }
+  .amt-chip { background: #0f172a; border: 1px solid #334155; color: #fff; padding: 10px; border-radius: 8px; cursor: pointer; }
+  .amt-chip.selected { background: var(--gold); color: #000; font-weight: 700; }
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid var(--gold); padding: 10px 18px; border-radius: 30px; font-size: 13px; z-index: 100; display: none; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="toast" id="toast"></div>
+
+  <div id="authSection" class="auth-box">
+    <h2>BIGWIN PRO</h2>
+    <input type="text" id="authUser" placeholder="Username">
+    <input type="password" id="authPass" placeholder="Password">
+    <input type="text" id="authInvite" placeholder="Referral Code (Optional - Get +₹500)" style="display:none;">
+    <button class="btn-primary" id="authBtn" onclick="submitAuth()">Login</button>
+    <div class="toggle-auth" id="toggleAuth" onclick="switchAuthMode()">New user? Create an account</div>
+  </div>
+
+  <div id="gameSection" style="display:none;">
+    <div class="header">
+      <div class="brand">BIGWIN <span style="color:#fff">PRO</span></div>
+      <div style="font-size:12px; color:var(--muted);">👤 <span id="userLabel"></span> | <a href="#" onclick="logout()" style="color:var(--red);">Logout</a></div>
+    </div>
+
+    <div class="wallet-card">
+      <div style="font-size:12px; opacity:0.85;">Available Balance</div>
+      <div class="balance" id="balance">₹0.00</div>
+    </div>
+
+    <div class="room-tabs">
+      <button class="room-btn active" onclick="selectRoom('30s', this)">WinGo 30s</button>
+      <button class="room-btn" onclick="selectRoom('1m', this)">WinGo 1m</button>
+      <button class="room-btn" onclick="selectRoom('3m', this)">WinGo 3m</button>
+      <button class="room-btn" onclick="selectRoom('5m', this)">WinGo 5m</button>
+    </div>
+
+    <div class="timer-box">
+      <div>
+        <div style="font-size:11px; color:var(--muted);">Period (<span id="roomTag">30s</span>)</div>
+        <div style="font-size:17px; font-weight:700;" id="periodId">---</div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--muted); text-align:right;">Time Left</div>
+        <div class="countdown">
+          <div class="digit" id="minBox">00</div><div class="digit">:</div><div class="digit" id="secBox">30</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bet-panel">
+      <div class="lock-overlay" id="lockOverlay">
+        <div class="lock-count" id="lockCount">5</div>
+        <div style="color:var(--muted); font-size:13px;">Betting Closed</div>
+      </div>
+
+      <div class="color-btns">
+        <button class="c-btn btn-green" onclick="openModal('green', '#10b981')">Green (2x)</button>
+        <button class="c-btn btn-violet" onclick="openModal('violet', '#8b5cf6')">Violet (4.5x)</button>
+        <button class="c-btn btn-red" onclick="openModal('red', '#ef4444')">Red (2x)</button>
+      </div>
+
+      <div class="num-grid" id="numGrid"></div>
+
+      <div class="bs-row">
+        <button class="bs-btn btn-big" onclick="openModal('big', '#f59e0b')">BIG (2x)</button>
+        <button class="bs-btn btn-small" onclick="openModal('small', '#3b82f6')">SMALL (2x)</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" id="tabH" onclick="showTab('h')">History</div>
+      <div class="tab" id="tabB" onclick="showTab('b')">My Bets</div>
+      <div class="tab" id="tabR" onclick="showTab('r')">Refer & Earn</div>
+    </div>
+
+    <div class="box" id="histView">
+      <table><thead><tr><th>Period</th><th>Num</th><th>Size</th><th>Color</th></tr></thead><tbody id="histBody"></tbody></table>
+    </div>
+
+    <div class="box" id="betsView" style="display:none;">
+      <table><thead><tr><th>Period</th><th>Select</th><th>Bet</th><th>Status</th></tr></thead><tbody id="betsBody"></tbody></table>
+    </div>
+
+    <div class="box ref-box" id="refView" style="display:none;">
+      <div style="font-size:15px; font-weight:700;">Invite Friends & Earn ₹500 Each!</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:4px;">Share your code. Both you and your friend get ₹500 bonus on signup.</div>
+      <div class="ref-code-display" id="myRefCode">------</div>
+      <button class="btn-primary" style="width:100%;" onclick="copyRef()">Copy Invite Link</button>
+      <div class="ref-stats">
+        <div class="stat-pill"><div style="font-size:11px;color:var(--muted);">Total Invites</div><div id="refCount" style="font-size:18px;font-weight:800;margin-top:4px;">0</div></div>
+        <div class="stat-pill"><div style="font-size:11px;color:var(--muted);">Bonus Earned</div><div id="refEarn" style="font-size:18px;font-weight:800;color:var(--green);margin-top:4px;">₹0</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div id="modalTitle" style="padding:12px; border-radius:10px; text-align:center; font-weight:700; margin-bottom:12px;">Join</div>
+    <div class="amt-row">
+      <button class="amt-chip selected" onclick="setAmt(10, this)">₹10</button>
+      <button class="amt-chip" onclick="setAmt(100, this)">₹100</button>
+      <button class="amt-chip" onclick="setAmt(500, this)">₹500</button>
+      <button class="amt-chip" onclick="setAmt(1000, this)">₹1000</button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 2fr; gap:10px;">
+      <button onclick="closeModal()" style="background:#334155; color:#fff; border:none; padding:14px; border-radius:10px;">Cancel</button>
+      <button onclick="placeBet()" id="confirmBtn" style="background:var(--green); color:#fff; border:none; padding:14px; border-radius:10px; font-weight:700;">Confirm ₹10</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const socket = io();
+  let authMode = 'login';
+  let currentUser = localStorage.getItem('wingo_user');
+  let activeRoom = '30s';
+  let selectedChoice = '';
+  let betAmt = 10;
+  let myCodeCache = '';
+
+  const urlRef = new URLSearchParams(window.location.search).get('ref');
+  if (urlRef && !currentUser) {
+    switchAuthMode();
+    document.getElementById('authInvite').value = urlRef;
+  }
+
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.innerText = msg; t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 2500);
+  }
+
+  function switchAuthMode() {
+    authMode = authMode === 'login' ? 'register' : 'login';
+    document.getElementById('authInvite').style.display = authMode === 'register' ? 'block' : 'none';
+    document.getElementById('authBtn').innerText = authMode === 'login' ? 'Login' : 'Register & Claim Bonus';
+    document.getElementById('toggleAuth').innerText = authMode === 'login' ? 'New user? Create an account' : 'Already have an account? Login';
+  }
+
+  async function submitAuth() {
+    const username = document.getElementById('authUser').value.trim();
+    const password = document.getElementById('authPass').value.trim();
+    const inviteCode = document.getElementById('authInvite').value.trim();
+    const res = await fetch('/api/auth', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, mode: authMode, inviteCode })
+    });
+    const data = await res.json();
+    if (!res.ok) return toast(data.error);
+    localStorage.setItem('wingo_user', data.username);
+    currentUser = data.username;
+    startApp();
+  }
+
+  function logout() { localStorage.removeItem('wingo_user'); location.reload(); }
+
+  function selectRoom(room, el) {
+    activeRoom = room;
+    document.getElementById('roomTag').innerText = room;
+    document.querySelectorAll('.room-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    syncState();
+  }
+
+  async function syncState() {
+    if (!currentUser) return;
+    const res = await fetch(`/api/state/${currentUser}/${activeRoom}`);
+    const data = await res.json();
+    document.getElementById('balance').innerText = `₹${data.balance.toLocaleString('en-IN')}`;
+    myCodeCache = data.refCode;
+    document.getElementById('myRefCode').innerText = data.refCode;
+    document.getElementById('refCount').innerText = data.referralsCount;
+    document.getElementById('refEarn').innerText = `₹${data.referralEarnings}`;
+
+    document.getElementById('histBody').innerHTML = data.history.map(r => {
+      const col = r.colors.includes('green') ? 'var(--green)' : 'var(--red)';
+      const dots = r.colors.map(c => `<span class="dot" style="background:var(--${c})"></span>`).join('');
+      const sizeCol = r.size === 'Big' ? 'var(--gold)' : 'var(--blue)';
+      return `<tr><td>${r.period}</td><td style="color:${col};font-weight:800;font-size:15px;">${r.number}</td><td style="color:${sizeCol};font-weight:700;">${r.size}</td><td>${dots}</td></tr>`;
+    }).join('');
+
+    document.getElementById('betsBody').innerHTML = data.myBets.map(b => {
+      const st = b.status === 'Won' ? `Won +₹${b.payout}` : b.status;
+      const col = b.status === 'Won' ? 'var(--green)' : b.status === 'Pending' ? 'var(--gold)' : 'var(--red)';
+      return `<tr><td>${b.period}</td><td><b>${b.selection.toUpperCase()}</b></td><td>₹${b.amount}</td><td style="color:${col};font-weight:700;">${st}</td></tr>`;
+    }).join('');
+  }
+
+  socket.on('tickAll', (allRooms) => {
+    const r = allRooms[activeRoom];
+    if (!r) return;
+    document.getElementById('periodId').innerText = r.period;
+    const mins = Math.floor(r.timeLeft / 60);
+    const secs = r.timeLeft % 60;
+    document.getElementById('minBox').innerText = String(mins).padStart(2, '0');
+    document.getElementById('secBox').innerText = String(secs).padStart(2, '0');
+
+    const lock = document.getElementById('lockOverlay');
+    if (r.timeLeft <= 5 && r.timeLeft > 0) {
+      lock.classList.add('active');
+      document.getElementById('lockCount').innerText = r.timeLeft;
+      closeModal();
+    } else {
+      lock.classList.remove('active');
+    }
+  });
+
+  socket.on('roundResult', ({ room, winNum, winSize }) => {
+    if (room === activeRoom) {
+      toast(`🔔 [${room}] Result: ${winNum} (${winSize})`);
+      syncState();
+    }
+  });
+
+  function openModal(choice, bg) {
+    selectedChoice = choice;
+    const t = document.getElementById('modalTitle');
+    t.innerText = `Join ${choice.toUpperCase()} (${activeRoom})`;
+    t.style.background = bg;
+    document.getElementById('modalBg').classList.add('open');
+  }
+  function closeModal() { document.getElementById('modalBg').classList.remove('open'); }
+  function setAmt(a, el) {
+    betAmt = a;
+    document.querySelectorAll('.amt-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('confirmBtn').innerText = `Confirm ₹${a}`;
+  }
+
+  async function placeBet() {
+    const res = await fetch('/api/bet', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, room: activeRoom, selection: selectedChoice, amount: betAmt })
+    });
+    const data = await res.json();
+    if (!res.ok) return toast(data.error);
+    closeModal();
+    toast(`✅ Bet Placed: ${selectedChoice.toUpperCase()} (₹${betAmt})`);
+    syncState();
+  }
+
+  function copyRef() {
+    const link = `${window.location.origin}/?ref=${myCodeCache}`;
+    navigator.clipboard.writeText(link);
+    toast('📋 Invite Link Copied!');
+  }
+
+  function showTab(t) {
+    ['H', 'B', 'R'].forEach(k => document.getElementById('tab' + k).classList.remove('active'));
+    document.getElementById('tab' + t.toUpperCase()).classList.add('active');
+    document.getElementById('histView').style.display = t === 'h' ? 'block' : 'none';
+    document.getElementById('betsView').style.display = t === 'b' ? 'block' : 'none';
+    document.getElementById('refView').style.display = t === 'r' ? 'block' : 'none';
+  }
+
+  function startApp() {
+    document.getElementById('authSection').style.display = 'none';
+    document.getElementById('gameSection').style.display = 'block';
+    document.getElementById('userLabel').innerText = currentUser;
+    const grid = document.getElementById('numGrid');
+    grid.innerHTML = '';
+    for (let i = 0; i <= 9; i++) {
+      let cls = i === 0 ? 'n-violet-red' : i === 5 ? 'n-violet-green' : (i % 2 === 0 ? 'n-red' : 'n-green');
+      let hex = i === 0 || i === 5 ? '#8b5cf6' : (i % 2 === 0 ? '#ef4444' : '#10b981');
+      grid.innerHTML += `<button class="num-btn ${cls}" onclick="openModal('${i}', '${hex}')">${i}</button>`;
+    }
+    syncState();
+  }
+
+  if (currentUser) startApp();
+</script>
+</body>
+</html>
