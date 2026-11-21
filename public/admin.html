@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard - WinGo Pro</title>
+<style>
+  body { background: #0f172a; color: #f8fafc; font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+  .card { background: #1e293b; padding: 18px; border-radius: 14px; margin-bottom: 16px; border: 1px solid #334155; }
+  h2 { color: #f59e0b; margin-bottom: 14px; }
+  input, select { background: #0f172a; border: 1px solid #475569; color: #fff; padding: 10px; border-radius: 8px; width: 100%; margin-bottom: 10px; }
+  .num-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+  button { padding: 10px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; background: #2563eb; color: #fff; }
+  .auto-btn { background: #10b981; width: 100%; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  th, td { padding: 8px; border-bottom: 1px solid #334155; text-align: left; }
+</style>
+</head>
+<body>
+  <h2>🛡️ WinGo Pro Admin Panel</h2>
+
+  <div class="card">
+    <label style="font-size:13px; color:#94a3b8;">Admin Secret Key</label>
+    <input type="password" id="adminKey" value="admin123" placeholder="Enter Admin Key">
+
+    <label style="font-size:13px; color:#94a3b8;">Select Room</label>
+    <select id="roomSelect" onchange="refreshStats()">
+      <option value="30s">WinGo 30s</option>
+      <option value="1m">WinGo 1m</option>
+      <option value="3m">WinGo 3m</option>
+      <option value="5m">WinGo 5m</option>
+    </select>
+
+    <div style="display:flex; justify-content:space-between; font-size:14px;">
+      <span>Active Period: <b id="pId">-</b></span>
+      <span>Total Users: <b id="uCount">0</b></span>
+    </div>
+    <div style="margin-top:8px; font-size:14px;">Next Result Mode: <b id="modeStatus" style="color:#10b981;">AUTO RANDOM</b></div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:700;">Set Next Round Result (Manual Override)</div>
+    <div class="num-row" id="adminNums"></div>
+    <button class="auto-btn" onclick="setNextResult(null)">Reset to Auto Random</button>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:700;">Current Round Live Bets</div>
+    <table>
+      <thead><tr><th>User</th><th>Choice</th><th>Amount</th></tr></thead>
+      <tbody id="liveBets"></tbody>
+    </table>
+  </div>
+
+<script>
+  const grid = document.getElementById('adminNums');
+  for (let i = 0; i <= 9; i++) {
+    grid.innerHTML += `<button onclick="setNextResult(${i})">${i}</button>`;
+  }
+
+  async function setNextResult(num) {
+    const key = document.getElementById('adminKey').value;
+    const room = document.getElementById('roomSelect').value;
+    const res = await fetch('/api/admin/set-result', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, room, number: num })
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error);
+    refreshStats();
+  }
+
+  async function refreshStats() {
+    const key = document.getElementById('adminKey').value;
+    const room = document.getElementById('roomSelect').value;
+    const res = await fetch(`/api/admin/stats?key=${key}&room=${room}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('pId').innerText = data.currentPeriod;
+    document.getElementById('uCount').innerText = data.totalUsers;
+    document.getElementById('modeStatus').innerText = data.forcedNextNumber !== null ? `FORCED (${data.forcedNextNumber})` : 'AUTO RANDOM';
+    document.getElementById('liveBets').innerHTML = data.currentBets.length
+      ? data.currentBets.map(b => `<tr><td>${b.username}</td><td>${b.selection.toUpperCase()}</td><td>₹${b.amount}</td></tr>`).join('')
+      : '<tr><td colspan="3">No bets in this round</td></tr>';
+  }
+
+  setInterval(refreshStats, 2000);
+  refreshStats();
+</script>
+</body>
+</html>
